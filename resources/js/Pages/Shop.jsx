@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from '@inertiajs/react';
 import { MapPin, Star, Filter, Plus, X } from 'lucide-react';
 import { useCart } from '../Components/CartModal.jsx';
+import { supabase } from '@/supabase';
 
 const getProductEmoji = (name, category) => {
     const n = name.toLowerCase();
@@ -32,11 +33,24 @@ const getProductOrigin = (name) => {
     return 'Luzon Farms';
 };
 
-export default function Shop({ products = [] }) {
+export default function Shop() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { addToCart } = useCart(); 
+    const [dbProducts, setDbProducts] = useState([]);
 
-    const enrichedProducts = products.map(product => {
+    useEffect(() => {
+        const fetchProducts = async () => {
+            const { data, error } = await supabase.from('products').select('*');
+            if (data) {
+                setDbProducts(data);
+            } else if (error) {
+                console.error('Error fetching products:', error);
+            }
+        };
+        fetchProducts();
+    }, []);
+
+    const enrichedProducts = dbProducts.map(product => {
         const name = product.name || '';
         const category = product.category || '';
         return {

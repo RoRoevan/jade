@@ -15,9 +15,7 @@ Route::get('/', function () {
 })->name('home');
 
 Route::get('/shop', function () {
-    return Inertia::render('Shop', [
-        'products' => Product::all(),
-    ]);
+    return Inertia::render('Shop');
 })->name('shop');
 
 Route::get('/membership', function () {

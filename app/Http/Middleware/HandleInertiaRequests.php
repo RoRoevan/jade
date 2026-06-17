@@ -44,7 +44,7 @@ class HandleInertiaRequests extends Middleware
                 return \App\Models\AdminNotification::when($tier === 'Seed', function ($q) {
                         $q->where('audience', 'seed_and_tree');
                     })
-                    ->orderBy('created_at', 'desc')
+                    ->orderBy('id', 'desc')
                     ->pluck('message');
             },
         ];

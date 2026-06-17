@@ -9,11 +9,14 @@ class Reward extends Model
 {
     use HasFactory;
 
+    public $timestamps = false;
+
     protected $fillable = [
         'name',
         'description',
         'points_required',
         'image',
+        'created_by',
     ];
 
     protected $casts = [

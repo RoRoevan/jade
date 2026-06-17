@@ -8,12 +8,16 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RedeemController;
 use App\Http\Controllers\AdminController;
 
+use App\Models\Product;
+
 Route::get('/', function () {
     return Inertia::render('Home');
 })->name('home');
 
 Route::get('/shop', function () {
-    return Inertia::render('Shop');
+    return Inertia::render('Shop', [
+        'products' => Product::all(),
+    ]);
 })->name('shop');
 
 Route::get('/membership', function () {

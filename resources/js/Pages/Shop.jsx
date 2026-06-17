@@ -1,12 +1,52 @@
 import { useState } from 'react';
 import { Link } from '@inertiajs/react';
 import { MapPin, Star, Filter, Plus, X } from 'lucide-react';
-import { products } from '../../assets/productdata.jsx'; 
 import { useCart } from '../Components/CartModal.jsx';
 
-export default function Shop() {
+const getProductEmoji = (name, category) => {
+    const n = name.toLowerCase();
+    const c = category.toLowerCase();
+    if (n.includes('mango')) return '🥭';
+    if (n.includes('eggplant')) return '🍆';
+    if (n.includes('egg')) return '🥚';
+    if (n.includes('parsley') || n.includes('herb')) return '🌿';
+    if (n.includes('banana')) return '🍌';
+    if (n.includes('honey')) return '🍯';
+    if (c.includes('fruit')) return '🍎';
+    if (c.includes('veg')) return '🥬';
+    return '📦';
+};
+
+const getProductDescription = (name) => {
+    return `Premium quality ${name.toLowerCase()}, freshly harvested and sourced directly from local Filipino farms.`;
+};
+
+const getProductOrigin = (name) => {
+    const n = name.toLowerCase();
+    if (n.includes('mango')) return 'Guimaras';
+    if (n.includes('eggplant')) return 'Nueva Ecija';
+    if (n.includes('egg')) return 'Tarlac';
+    if (n.includes('parsley')) return 'Benguet';
+    if (n.includes('banana')) return 'Davao';
+    if (n.includes('honey')) return 'Mountain Province';
+    return 'Luzon Farms';
+};
+
+export default function Shop({ products = [] }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { addToCart } = useCart(); 
+
+    const enrichedProducts = products.map(product => {
+        const name = product.name || '';
+        const category = product.category || '';
+        return {
+            ...product,
+            image: getProductEmoji(name, category),
+            description: getProductDescription(name),
+            from: getProductOrigin(name),
+            rating: 5
+        };
+    });
 
     const filters = [
         {
@@ -103,7 +143,7 @@ export default function Shop() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
-                        {products.map((product) => (
+                        {enrichedProducts.map((product) => (
                             <div 
                                 key={product.id} 
                                 className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden flex flex-col hover:shadow-2xl transition-shadow duration-300"

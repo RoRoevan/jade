@@ -64,7 +64,7 @@ class RedeemController extends Controller
 
         $redeemed = RedeemedReward::where('user_id', $user->id)
             ->with('reward')
-            ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc')
             ->get();
 
         return Inertia::render('RedeemedRewards', [

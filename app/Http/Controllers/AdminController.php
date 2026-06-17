@@ -20,15 +20,15 @@ class AdminController extends Controller
     public function index()
     {
         $subscribers = User::whereIn('membership_tier', ['Seed', 'Tree', 'Forest'])
-            ->select('id', 'first_name', 'last_name', 'email', 'membership_tier', 'points', 'created_at')
-            ->orderBy('created_at', 'desc')
+            ->select('id', 'first_name', 'last_name', 'email', 'membership_tier', 'points')
+            ->orderBy('id', 'desc')
             ->get();
 
-        $rewards = Reward::orderBy('created_at', 'desc')->get();
+        $rewards = Reward::orderBy('id', 'desc')->get();
 
-        $notifications = AdminNotification::orderBy('created_at', 'desc')->get();
+        $notifications = AdminNotification::orderBy('id', 'desc')->get();
 
-        $forestRequests = ForestPartnershipRequest::orderBy('created_at', 'desc')->get();
+        $forestRequests = ForestPartnershipRequest::orderBy('id', 'desc')->get();
 
         return Inertia::render('Admin', [
             'subscribers'    => $subscribers,
@@ -62,6 +62,7 @@ class AdminController extends Controller
             'description'     => $request->description,
             'points_required' => $request->points_required,
             'image'           => $imagePath ? '/storage/' . $imagePath : null,
+            'created_by'      => auth()->id(),
         ]);
 
         return back()->with('status', 'Reward added successfully.');
@@ -130,6 +131,7 @@ class AdminController extends Controller
 
         $requestRecord = ForestPartnershipRequest::create(array_merge($validated, [
             'status' => 'pending',
+            'user_id' => auth()->id() ?? 1,
         ]));
 
         AdminNotification::create([
@@ -169,7 +171,9 @@ class AdminController extends Controller
             'audience' => 'required|in:seed_and_tree,tree_only',
         ]);
 
-        AdminNotification::create($request->only('message', 'audience'));
+        AdminNotification::create(array_merge($request->only('message', 'audience'), [
+            'created_by' => auth()->id() ?? 1,
+        ]));
 
         return back()->with('status', 'Notification sent successfully.');
     }

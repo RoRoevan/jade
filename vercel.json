@@ -3,13 +3,17 @@
   "framework": null,
   "functions": {
     "api/index.php": {
-      "runtime": "vercel-php@0.7.1"
+      "runtime": "vercel-php@0.7.4"
     }
   },
   "routes": [
     {
       "src": "/build/(.*)",
       "dest": "/public/build/$1"
+    },
+    {
+      "src": "/images/(.*)",
+      "dest": "/public/images/$1"
     },
     {
       "src": "/(favicon\\.ico|robots\\.txt|sitemap\\.xml)",
@@ -20,6 +24,5 @@
       "dest": "/api/index.php"
     }
   ],
-  "outputDirectory": "public",
-  "buildCommand": "vite build"
+  "buildCommand": "npm install && npm run build"
 }

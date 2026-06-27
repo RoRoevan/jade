@@ -1,8 +1,46 @@
 import { usePage, Link } from '@inertiajs/react';
 import { Gift, ArrowLeft, CalendarDays, Coins } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/supabase';
 
 export default function RedeemedRewards() {
     const { user, redeemed } = usePage().props;
+    const [localRedeemed, setLocalRedeemed] = useState(redeemed || []);
+    const [supabaseUserPoints, setSupabaseUserPoints] = useState(user?.points ?? 0);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const loadRedeemed = async () => {
+            if (!user?.supabase_id) return;
+            try {
+                const { data: dbRedeemed, error: redeemError } = await supabase
+                    .from('redeemed_rewards')
+                    .select('*')
+                    .eq('user_id', user.supabase_id)
+                    .order('id', { ascending: false });
+
+                if (dbRedeemed) {
+                    setLocalRedeemed(dbRedeemed);
+                }
+
+                const { data: userData } = await supabase
+                    .from('users')
+                    .select('points')
+                    .eq('id', user.supabase_id)
+                    .single();
+
+                if (userData) {
+                    setSupabaseUserPoints(userData.points);
+                }
+            } catch (err) {
+                console.error('Error loading Supabase redeemed rewards:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadRedeemed();
+    }, [user]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-amber-50">
@@ -22,7 +60,7 @@ export default function RedeemedRewards() {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-5 mb-8 flex items-center justify-between">
                     <div>
                         <p className="text-sm text-gray-500">Current Balance</p>
-                        <p className="text-3xl font-bold text-green-900">{user.points ?? 0} <span className="text-lg font-medium text-gray-400">pts</span></p>
+                        <p className="text-3xl font-bold text-green-900">{supabaseUserPoints ?? 0} <span className="text-lg font-medium text-gray-400">pts</span></p>
                     </div>
                     <Link
                         href="/redeem"
@@ -33,7 +71,7 @@ export default function RedeemedRewards() {
                     </Link>
                 </div>
 
-                {redeemed.length === 0 ? (
+                {localRedeemed.length === 0 ? (
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-16 text-center">
                         <Gift className="w-14 h-14 text-gray-200 mx-auto mb-4" />
                         <h3 className="text-xl font-bold text-gray-700 mb-2">No redemptions yet</h3>
@@ -48,9 +86,9 @@ export default function RedeemedRewards() {
                 ) : (
                     <div className="space-y-4">
                         <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider px-1 mb-2">
-                            {redeemed.length} Redemption{redeemed.length !== 1 ? 's' : ''}
+                            {localRedeemed.length} Redemption{localRedeemed.length !== 1 ? 's' : ''}
                         </p>
-                        {redeemed.map((item) => (
+                        {localRedeemed.map((item) => (
                             <div
                                 key={item.id}
                                 className="bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-5 flex items-center gap-5"

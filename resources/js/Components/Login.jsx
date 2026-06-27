@@ -1,5 +1,8 @@
 import { useForm, Link } from '@inertiajs/react';
 import { X, Mail, Lock } from 'lucide-react';
+import { useState } from 'react';
+import { supabase } from '@/supabase';
+import axios from 'axios';
 
 const InputField = ({ id, name, type, value, onChange, placeholder, icon, error }) => (
     <div className="relative mb-4">
@@ -20,17 +23,92 @@ const InputField = ({ id, name, type, value, onChange, placeholder, icon, error 
 );
 
 export default function LoginModal({ onClose, onSwitchToRegister }) {
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, reset } = useForm({
         email: '',
         password: '',
         remember: false,
     });
 
-    const handleSubmit = (e) => {
+    const [localProcessing, setLocalProcessing] = useState(false);
+    const [localErrors, setLocalErrors] = useState({});
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        post('/login', {
-            onSuccess: () => onClose(),
-        });
+        setLocalProcessing(true);
+        setLocalErrors({});
+
+        try {
+            // 1. Authenticate with Supabase Auth
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email: data.email,
+                password: data.password,
+            });
+
+            if (authError) {
+                setLocalErrors({ email: authError.message });
+                setLocalProcessing(false);
+                return;
+            }
+
+            const user = authData.user;
+            const session = authData.session;
+
+            if (!user || !session) {
+                setLocalErrors({ email: 'Login succeeded, but no session details were found.' });
+                setLocalProcessing(false);
+                return;
+            }
+
+            // 2. Fetch user profile from Supabase public.users table
+            const { data: profileData, error: profileError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            let userData = {
+                email: user.email,
+                first_name: user.user_metadata?.first_name || '',
+                last_name: user.user_metadata?.last_name || '',
+                membership_tier: 'Seed',
+                points: 0,
+                is_admin: false,
+            };
+
+            if (profileError) {
+                console.warn('Profile not found in Supabase users table, creating fallback...', profileError);
+                // Fallback: create the public.users record if missing
+                await supabase.from('users').insert({
+                    id: user.id,
+                    email: user.email,
+                    first_name: user.user_metadata?.first_name || '',
+                    last_name: user.user_metadata?.last_name || '',
+                    membership_tier: 'Seed',
+                    points: 0,
+                    is_admin: false,
+                });
+            } else if (profileData) {
+                userData = profileData;
+            }
+
+            // 3. Post session and profile to Laravel /auth-sync
+            const syncResponse = await axios.post('/auth-sync', {
+                access_token: session.access_token,
+                user_data: userData,
+            });
+
+            if (syncResponse.data.status === 'success') {
+                onClose();
+                window.location.reload();
+            } else {
+                setLocalErrors({ email: 'Failed to sync authentication session with server.' });
+            }
+        } catch (err) {
+            console.error('Login error:', err);
+            setLocalErrors({ email: err.message || 'An unexpected login error occurred.' });
+        } finally {
+            setLocalProcessing(false);
+        }
     };
 
     return (
@@ -53,7 +131,7 @@ export default function LoginModal({ onClose, onSwitchToRegister }) {
                         onChange={(e) => setData('email', e.target.value)}
                         placeholder="Email Address"
                         icon={<Mail className="w-5 h-5 text-gray-400" />}
-                        error={errors.email}
+                        error={localErrors.email}
                     />
                     <InputField
                         id="login_password"
@@ -63,7 +141,7 @@ export default function LoginModal({ onClose, onSwitchToRegister }) {
                         onChange={(e) => setData('password', e.target.value)}
                         placeholder="Password"
                         icon={<Lock className="w-5 h-5 text-gray-400" />}
-                        error={errors.password}
+                        error={localErrors.password}
                     />
                     <div className="flex justify-between items-center mb-6">
                         <label className="flex items-center text-sm text-gray-600">
@@ -82,10 +160,10 @@ export default function LoginModal({ onClose, onSwitchToRegister }) {
                     </div>
                     <button 
                         type="submit"
-                        disabled={processing}
+                        disabled={localProcessing}
                         className="w-full bg-green-800 text-white px-6 py-3 rounded-full font-semibold hover:bg-green-700 transition"
                     >
-                        {processing ? 'Logging in...' : 'Login'}
+                        {localProcessing ? 'Logging in...' : 'Login'}
                     </button>
                 </form>
 

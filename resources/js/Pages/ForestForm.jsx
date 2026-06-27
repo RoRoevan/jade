@@ -1,7 +1,9 @@
-import { useForm, router } from '@inertiajs/react';
+import { useForm, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import { supabase } from '@/supabase';
 
 export default function ForestForm() {
+    const { auth } = usePage().props;
     const { data, setData, post, processing, reset } = useForm({
         business_name: '',
         contact_person: '',
@@ -13,8 +15,27 @@ export default function ForestForm() {
 
     const [showModal, setShowModal] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+
+        try {
+            const { error } = await supabase.from('forest_partnership_requests').insert({
+                user_id: auth?.user?.supabase_id || null,
+                business_name: data.business_name,
+                contact_person: data.contact_person,
+                email: data.email,
+                phone: data.phone,
+                preferred_date: data.preferred_date,
+                proposal_description: data.proposal_description,
+                status: 'pending'
+            });
+
+            if (error) {
+                console.error('Failed to write partnership request to Supabase:', error);
+            }
+        } catch (err) {
+            console.error('Error saving to Supabase:', err);
+        }
 
         post('/forest-form', {
             onSuccess: () => {

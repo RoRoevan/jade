@@ -44,6 +44,7 @@ Route::get('/orders', function () {
 Route::post('/register', [AuthController::class, 'register'])->name('register');
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::post('/auth-sync', [AuthController::class, 'syncAuth'])->name('auth.sync');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/cart', function () {

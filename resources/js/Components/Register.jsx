@@ -1,5 +1,8 @@
 import { useForm } from '@inertiajs/react';
 import { X, Mail, Lock, User as UserIcon } from 'lucide-react';
+import { useState } from 'react';
+import { supabase } from '@/supabase';
+import axios from 'axios';
 
 const InputField = ({ id, name, type, value, onChange, placeholder, icon, error }) => (
     <div className="relative mb-4">
@@ -20,7 +23,7 @@ const InputField = ({ id, name, type, value, onChange, placeholder, icon, error 
 );
 
 export default function RegisterModal({ onClose, onSwitchToLogin }) {
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { data, setData, reset } = useForm({
         first_name: '',
         last_name: '',
         email: '',
@@ -28,11 +31,93 @@ export default function RegisterModal({ onClose, onSwitchToLogin }) {
         password_confirmation: '',
     });
 
-    const handleSubmit = (e) => {
+    const [localProcessing, setLocalProcessing] = useState(false);
+    const [localErrors, setLocalErrors] = useState({});
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        post('/register', {
-            onSuccess: () => onClose(),
-        });
+        setLocalProcessing(true);
+        setLocalErrors({});
+
+        if (data.password !== data.password_confirmation) {
+            setLocalErrors({ password_confirmation: 'Passwords do not match' });
+            setLocalProcessing(false);
+            return;
+        }
+
+        try {
+            // 1. Sign up user with Supabase Auth
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email: data.email,
+                password: data.password,
+                options: {
+                    data: {
+                        first_name: data.first_name,
+                        last_name: data.last_name,
+                    }
+                }
+            });
+
+            if (authError) {
+                setLocalErrors({ email: authError.message });
+                setLocalProcessing(false);
+                return;
+            }
+
+            const user = authData.user;
+            const session = authData.session;
+
+            if (!user) {
+                setLocalErrors({ email: 'Registration succeeded, but user was not found.' });
+                setLocalProcessing(false);
+                return;
+            }
+
+            // 2. Write profile row into the public.users table in Supabase
+            const { error: dbError } = await supabase.from('users').insert({
+                id: user.id,
+                email: data.email,
+                first_name: data.first_name,
+                last_name: data.last_name,
+                membership_tier: 'Seed',
+                points: 0,
+                is_admin: false,
+            });
+
+            if (dbError) {
+                console.error('Failed to create user record in Supabase database:', dbError);
+            }
+
+            // 3. Log user in on Laravel using the secure session token
+            if (session?.access_token) {
+                const syncResponse = await axios.post('/auth-sync', {
+                    access_token: session.access_token,
+                    user_data: {
+                        first_name: data.first_name,
+                        last_name: data.last_name,
+                        email: data.email,
+                        membership_tier: 'Seed',
+                        points: 0,
+                        is_admin: false,
+                    }
+                });
+
+                if (syncResponse.data.status === 'success') {
+                    onClose();
+                    window.location.reload();
+                } else {
+                    setLocalErrors({ email: 'Failed to sync registration session with server.' });
+                }
+            } else {
+                // If email confirmation is enabled and session is not active immediately
+                setLocalErrors({ email: 'Registration successful! Please check your email to confirm your account before logging in.' });
+            }
+        } catch (err) {
+            console.error('Registration error:', err);
+            setLocalErrors({ email: err.message || 'An unexpected registration error occurred.' });
+        } finally {
+            setLocalProcessing(false);
+        }
     };
 
     return (
@@ -56,7 +141,7 @@ export default function RegisterModal({ onClose, onSwitchToLogin }) {
                             onChange={(e) => setData('first_name', e.target.value)}
                             placeholder="First Name"
                             icon={<UserIcon className="w-5 h-5 text-gray-400" />}
-                            error={errors.first_name}
+                            error={localErrors.first_name}
                         />
                         <InputField
                             id="last_name"
@@ -66,7 +151,7 @@ export default function RegisterModal({ onClose, onSwitchToLogin }) {
                             onChange={(e) => setData('last_name', e.target.value)}
                             placeholder="Last Name"
                             icon={<UserIcon className="w-5 h-5 text-gray-400" />}
-                            error={errors.last_name}
+                            error={localErrors.last_name}
                         />
                     </div>
                     <InputField
@@ -77,7 +162,7 @@ export default function RegisterModal({ onClose, onSwitchToLogin }) {
                         onChange={(e) => setData('email', e.target.value)}
                         placeholder="Email Address"
                         icon={<Mail className="w-5 h-5 text-gray-400" />}
-                        error={errors.email}
+                        error={localErrors.email}
                     />
                     <InputField
                         id="signup_password"
@@ -87,7 +172,7 @@ export default function RegisterModal({ onClose, onSwitchToLogin }) {
                         onChange={(e) => setData('password', e.target.value)}
                         placeholder="Password"
                         icon={<Lock className="w-5 h-5 text-gray-400" />}
-                        error={errors.password}
+                        error={localErrors.password}
                     />
                     <InputField
                         id="password_confirmation"
@@ -97,14 +182,14 @@ export default function RegisterModal({ onClose, onSwitchToLogin }) {
                         onChange={(e) => setData('password_confirmation', e.target.value)}
                         placeholder="Confirm Password"
                         icon={<Lock className="w-5 h-5 text-gray-400" />}
-                        error={errors.password_confirmation}
+                        error={localErrors.password_confirmation}
                     />
                     <button 
                         type="submit"
-                        disabled={processing}
+                        disabled={localProcessing}
                         className="w-full bg-green-800 text-white px-6 py-3 rounded-full font-semibold hover:bg-green-700 transition mt-2"
                     >
-                        {processing ? 'Creating account...' : 'Sign Up'}
+                        {localProcessing ? 'Creating account...' : 'Sign Up'}
                     </button>
                 </form>
 

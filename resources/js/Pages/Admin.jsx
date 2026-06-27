@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { usePage, router } from '@inertiajs/react';
+import { supabase } from '@/supabase';
 import {
     Users, Gift, Bell, Trash2, Plus, X, ChevronDown,
     Sprout, TreePine, Trees, Edit2, Check, AlertCircle,
@@ -69,7 +70,13 @@ const StatCard = ({ label, value, icon: Icon, color }) => (
 );
 
 export default function Admin() {
-    const { subscribers = [], rewards = [], notifications = [], forestRequests = [], flash } = usePage().props;
+    const { subscribers = [], rewards = [], notifications = [], forestRequests = [], flash, auth } = usePage().props;
+    const [localSubscribers, setLocalSubscribers] = useState(subscribers || []);
+    const [localRewards, setLocalRewards] = useState(rewards || []);
+    const [localNotifications, setLocalNotifications] = useState(notifications || []);
+    const [localForestRequests, setLocalForestRequests] = useState(forestRequests || []);
+    const [loading, setLoading] = useState(true);
+
     const [tab, setTab]     = useState('subscriptions');
     const [search, setSearch] = useState('');
 
@@ -89,16 +96,41 @@ export default function Admin() {
     const [tierValue, setTierValue]       = useState('');
     const [pointsValue, setPointsValue]   = useState('');
 
-    const seedCount   = subscribers.filter(u => u.membership_tier === 'Seed').length;
-    const treeCount   = subscribers.filter(u => u.membership_tier === 'Tree').length;
-    const forestCount = subscribers.filter(u => u.membership_tier === 'Forest').length;
+    const loadSupabaseData = async () => {
+        setLoading(true);
+        try {
+            const { data: dbUsers } = await supabase.from('users').select('*');
+            if (dbUsers) setLocalSubscribers(dbUsers);
+
+            const { data: dbRewards } = await supabase.from('rewards').select('*').order('points_required', { ascending: true });
+            if (dbRewards) setLocalRewards(dbRewards);
+
+            const { data: dbNotifs } = await supabase.from('notifications').select('*').order('id', { ascending: false });
+            if (dbNotifs) setLocalNotifications(dbNotifs);
+
+            const { data: dbRequests } = await supabase.from('forest_partnership_requests').select('*').order('id', { ascending: false });
+            if (dbRequests) setLocalForestRequests(dbRequests);
+        } catch (err) {
+            console.error('Error loading Supabase admin data:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadSupabaseData();
+    }, [subscribers, rewards, notifications, forestRequests]);
+
+    const seedCount   = localSubscribers.filter(u => u.membership_tier === 'Seed').length;
+    const treeCount   = localSubscribers.filter(u => u.membership_tier === 'Tree').length;
+    const forestCount = localSubscribers.filter(u => u.membership_tier === 'Forest').length;
 
     const getPreviewText = (text) => {
         if (!text) return '';
         return text.length > 160 ? `${text.slice(0, 160)}...` : text;
     };
 
-    const filtered = subscribers.filter(u =>
+    const filtered = localSubscribers.filter(u =>
         `${u.first_name} ${u.last_name} ${u.email}`.toLowerCase().includes(search.toLowerCase())
     );
 
@@ -120,9 +152,37 @@ export default function Admin() {
         const file = e.target.files[0];
         if (!file) return;
         setImageFile(file);
-        setImagePreview(URL.createObjectURL(file));
+        
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setImagePreview(reader.result);
+        };
+        reader.readAsDataURL(file);
     };
-    const submitReward = () => {
+    const submitReward = async () => {
+        try {
+            if (editReward) {
+                const { error } = await supabase.from('rewards').update({
+                    name: rewardForm.name,
+                    description: rewardForm.description,
+                    points_required: parseInt(rewardForm.points_required),
+                    image: imagePreview
+                }).eq('id', editReward.id);
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.from('rewards').insert({
+                    name: rewardForm.name,
+                    description: rewardForm.description,
+                    points_required: parseInt(rewardForm.points_required),
+                    image: imagePreview,
+                    created_by: auth?.user?.supabase_id || null
+                });
+                if (error) throw error;
+            }
+        } catch (err) {
+            console.error('Failed to save reward to Supabase:', err);
+        }
+
         const formData = new FormData();
         formData.append('name',             rewardForm.name);
         formData.append('description',      rewardForm.description);
@@ -142,17 +202,41 @@ export default function Admin() {
             });
         }
     };
-    const deleteReward = (id) => {
-        if (confirm('Delete this reward?')) router.delete(`/admin/rewards/${id}`);
+    const deleteReward = async (id) => {
+        if (confirm('Delete this reward?')) {
+            try {
+                await supabase.from('rewards').delete().eq('id', id);
+            } catch (err) {
+                console.error('Failed to delete reward from Supabase:', err);
+            }
+            router.delete(`/admin/rewards/${id}`);
+        }
     };
 
-    const submitNotif = () => {
+    const submitNotif = async () => {
+        try {
+            await supabase.from('notifications').insert({
+                message: notifForm.message,
+                audience: notifForm.audience,
+                created_by: auth?.user?.supabase_id || null
+            });
+        } catch (err) {
+            console.error('Failed to send notification to Supabase:', err);
+        }
+
         router.post('/admin/notifications', notifForm, {
             onSuccess: () => { setNotifModal(false); setNotifForm({ message: '', audience: 'seed_and_tree' }); }
         });
     };
-    const deleteNotif = (id) => {
-        if (confirm('Delete this notification?')) router.delete(`/admin/notifications/${id}`);
+    const deleteNotif = async (id) => {
+        if (confirm('Delete this notification?')) {
+            try {
+                await supabase.from('notifications').delete().eq('id', id);
+            } catch (err) {
+                console.error('Failed to delete notification from Supabase:', err);
+            }
+            router.delete(`/admin/notifications/${id}`);
+        }
     };
 
     const startEdit = (user) => {
@@ -160,12 +244,28 @@ export default function Admin() {
         setTierValue(user.membership_tier);
         setPointsValue(user.points);
     };
-    const saveSubscription = (userId) => {
+    const saveSubscription = async (userId) => {
+        const userObj = localSubscribers.find(u => u.id === userId);
+        if (userObj?.supabase_id) {
+            try {
+                await supabase.from('users').update({ membership_tier: tierValue }).eq('id', userObj.supabase_id);
+            } catch (err) {
+                console.error('Failed to update subscription in Supabase:', err);
+            }
+        }
         router.put(`/admin/subscriptions/${userId}`, { membership_tier: tierValue }, {
             onSuccess: () => setEditingUser(null)
         });
     };
-    const savePoints = (userId) => {
+    const savePoints = async (userId) => {
+        const userObj = localSubscribers.find(u => u.id === userId);
+        if (userObj?.supabase_id) {
+            try {
+                await supabase.from('users').update({ points: pointsValue }).eq('id', userObj.supabase_id);
+            } catch (err) {
+                console.error('Failed to update points in Supabase:', err);
+            }
+        }
         router.put(`/admin/subscriptions/${userId}/points`, { points: pointsValue }, {
             onSuccess: () => setEditingUser(null)
         });
@@ -350,7 +450,7 @@ export default function Admin() {
                             </button>
                         </div>
 
-                        {rewards.length === 0 && (
+                        {localRewards.length === 0 && (
                             <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-400">
                                 <Gift className="w-12 h-12 mx-auto mb-3 opacity-30" />
                                 <p className="font-semibold">No rewards yet. Add one to get started.</p>
@@ -358,7 +458,7 @@ export default function Admin() {
                         )}
 
                         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                            {rewards.map(r => (
+                            {localRewards.map(r => (
                                 <div key={r.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
                                     <div className="h-40 bg-gradient-to-br from-green-50 to-amber-50 flex items-center justify-center">
                                         {r.image
@@ -404,7 +504,7 @@ export default function Admin() {
                             <span className="text-xs text-gray-500">Pending, accepted, and declined submissions are listed here.</span>
                         </div>
 
-                        {forestRequests.length === 0 && (
+                        {localForestRequests.length === 0 && (
                             <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-400">
                                 <Trees className="w-12 h-12 mx-auto mb-3 opacity-30" />
                                 <p className="font-semibold">No partnership requests yet.</p>
@@ -412,7 +512,7 @@ export default function Admin() {
                         )}
 
                         <div className="space-y-4">
-                            {forestRequests.map((request) => (
+                            {localForestRequests.map((request) => (
                                 <div key={request.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                                     <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                                         <div>
@@ -451,9 +551,19 @@ export default function Admin() {
                                                         key={status}
                                                         type="button"
                                                         disabled={request.status !== 'pending'}
-                                                        onClick={() => router.patch(`/admin/forest-requests/${request.id}`, { status }, {
-                                                            onSuccess: () => router.reload({ only: ['forestRequests'] })
-                                                        })}
+                                                        onClick={async () => {
+                                                            try {
+                                                                await supabase.from('forest_partnership_requests')
+                                                                    .update({ status })
+                                                                    .eq('email', request.email)
+                                                                    .eq('business_name', request.business_name);
+                                                            } catch (err) {
+                                                                console.error('Failed to update request status in Supabase:', err);
+                                                            }
+                                                            router.patch(`/admin/forest-requests/${request.id}`, { status }, {
+                                                                onSuccess: () => router.reload({ only: ['forestRequests'] })
+                                                            });
+                                                        }}
                                                         className={`px-3 py-2 rounded-xl text-xs font-semibold border transition ${
                                                             request.status === status
                                                                 ? 'bg-green-800 text-white border-green-800'
@@ -487,7 +597,7 @@ export default function Admin() {
                             </button>
                         </div>
 
-                        {notifications.length === 0 && (
+                        {localNotifications.length === 0 && (
                             <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-400">
                                 <Bell className="w-12 h-12 mx-auto mb-3 opacity-30" />
                                 <p className="font-semibold">No notifications yet.</p>
@@ -495,7 +605,7 @@ export default function Admin() {
                         )}
 
                         <div className="space-y-3">
-                            {notifications.map(n => (
+                            {localNotifications.map(n => (
                                 <div key={n.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-4 flex items-start gap-4">
                                     <div className={`mt-0.5 w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                                         n.audience === 'tree_only'

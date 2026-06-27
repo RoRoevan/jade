@@ -30,5 +30,16 @@ if (!file_exists($targetDb) && file_exists($templateDb)) {
     chmod($targetDb, 0666);
 }
 
-// Forward Vercel requests to Laravel's public/index.php
-require __DIR__ . '/../public/index.php';
+try {
+    // Forward Vercel requests to Laravel's public/index.php
+    require __DIR__ . '/../public/index.php';
+} catch (\Throwable $e) {
+    header("HTTP/1.1 200 OK");
+    echo "<h1>Caught Boot Throwable</h1>";
+    echo "<pre>";
+    echo "Message: " . $e->getMessage() . "\n\n";
+    echo "File: " . $e->getFile() . ":" . $e->getLine() . "\n\n";
+    echo "Trace:\n" . $e->getTraceAsString();
+    echo "</pre>";
+    exit(0);
+}

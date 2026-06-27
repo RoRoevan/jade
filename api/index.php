@@ -20,9 +20,19 @@ $_ENV['APP_CONFIG_CACHE'] = '/tmp/config.php';
 $_ENV['APP_ROUTES_CACHE'] = '/tmp/routes.php';
 $_ENV['APP_EVENTS_CACHE'] = '/tmp/events.php';
 
-foreach ($_ENV as $key => $val) {
-    putenv("{$key}={$val}");
-}
+putenv('APP_ENV=production');
+putenv('APP_DEBUG=true');
+putenv('LOG_CHANNEL=stderr');
+putenv('CACHE_DRIVER=array');
+putenv('SESSION_DRIVER=cookie');
+putenv('VIEW_COMPILED_PATH=/tmp');
+putenv('DB_CONNECTION=sqlite');
+putenv('DB_DATABASE=/tmp/database.sqlite');
+putenv('APP_PACKAGES_CACHE=/tmp/packages.php');
+putenv('APP_SERVICES_CACHE=/tmp/services.php');
+putenv('APP_CONFIG_CACHE=/tmp/config.php');
+putenv('APP_ROUTES_CACHE=/tmp/routes.php');
+putenv('APP_EVENTS_CACHE=/tmp/events.php');
 
 // Suppress deprecation warnings to keep output clean
 ini_set('display_errors', '0');

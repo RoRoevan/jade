@@ -31,11 +31,16 @@ export default function LoginModal({ onClose, onSwitchToRegister }) {
 
     const [localProcessing, setLocalProcessing] = useState(false);
     const [localErrors, setLocalErrors] = useState({});
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLocalProcessing(true);
         setLocalErrors({});
+
+        if (!supabase) {
+            setLocalErrors({ email: 'Supabase client is not initialized. Please check your environment variables.' });
+            setLocalProcessing(false);
+            return;
+        }
 
         try {
             // 1. Authenticate with Supabase Auth

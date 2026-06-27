@@ -39,6 +39,12 @@ export default function RegisterModal({ onClose, onSwitchToLogin }) {
         setLocalProcessing(true);
         setLocalErrors({});
 
+        if (!supabase) {
+            setLocalErrors({ email: 'Supabase client is not initialized. Please check your environment variables.' });
+            setLocalProcessing(false);
+            return;
+        }
+
         if (data.password !== data.password_confirmation) {
             setLocalErrors({ password_confirmation: 'Passwords do not match' });
             setLocalProcessing(false);

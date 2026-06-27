@@ -15,8 +15,19 @@ class RedeemController extends Controller
      */
     public function index()
     {
-        $user    = Auth::user();
-        $rewards = Reward::orderBy('points_required')->get();
+        $user = Auth::user();
+        $rewards = [];
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'apikey' => env('VITE_SUPABASE_ANON_KEY', 'sb_publishable_icgYx3cjCVnbiVBSPXORSg_5N37R3im'),
+                'Authorization' => 'Bearer ' . env('VITE_SUPABASE_ANON_KEY', 'sb_publishable_icgYx3cjCVnbiVBSPXORSg_5N37R3im'),
+            ])->get(env('VITE_SUPABASE_URL', 'https://aknuiuavolazpdhlmrmd.supabase.co') . '/rest/v1/rewards?order=points_required.asc');
+            
+            $rewards = $response->json() ?? [];
+        } catch (\Exception $e) {
+            // Ignore API exceptions
+        }
 
         return Inertia::render('Redeem', [
             'user'    => $user,
@@ -25,34 +36,11 @@ class RedeemController extends Controller
     }
 
     /**
-     * Claim a reward and log it to redeemed_rewards.
+     * Claim a reward (handled client-side; kept as stub).
      */
     public function claim(Request $request)
     {
-        $request->validate([
-            'reward_id' => 'required|integer|exists:rewards,id',
-        ]);
-
-        $user   = Auth::user();
-        $reward = Reward::findOrFail($request->reward_id);
-
-        if ($user->points < $reward->points_required) {
-            return back()->with('error', 'Not enough points to redeem this reward.');
-        }
-
-        // Deduct points
-        $user->points -= $reward->points_required;
-        $user->save();
-
-        // Log the redemption
-        RedeemedReward::create([
-            'user_id'      => $user->id,
-            'reward_id'    => $reward->id,
-            'reward_name'  => $reward->name,
-            'points_spent' => $reward->points_required,
-        ]);
-
-        return back()->with('status', "You have successfully redeemed: {$reward->name}!");
+        return back()->with('status', 'Claim submitted successfully!');
     }
 
     /**
@@ -61,11 +49,20 @@ class RedeemController extends Controller
     public function redeemed()
     {
         $user = Auth::user();
+        $redeemed = [];
 
-        $redeemed = RedeemedReward::where('user_id', $user->id)
-            ->with('reward')
-            ->orderBy('id', 'desc')
-            ->get();
+        if ($user && !empty($user->supabase_id)) {
+            try {
+                $response = \Illuminate\Support\Facades\Http::withHeaders([
+                    'apikey' => env('VITE_SUPABASE_ANON_KEY', 'sb_publishable_icgYx3cjCVnbiVBSPXORSg_5N37R3im'),
+                    'Authorization' => 'Bearer ' . env('VITE_SUPABASE_ANON_KEY', 'sb_publishable_icgYx3cjCVnbiVBSPXORSg_5N37R3im'),
+                ])->get(env('VITE_SUPABASE_URL', 'https://aknuiuavolazpdhlmrmd.supabase.co') . '/rest/v1/redeemed_rewards?user_id=eq.' . $user->supabase_id . '&order=id.desc');
+                
+                $redeemed = $response->json() ?? [];
+            } catch (\Exception $e) {
+                // Ignore API exceptions
+            }
+        }
 
         return Inertia::render('RedeemedRewards', [
             'user'     => $user,

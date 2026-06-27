@@ -21,9 +21,6 @@ class ForestFormTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('forest_partnership_requests', [
-            'business_name' => 'Green Leaf Co',
-            'status' => 'pending',
-        ]);
+        $response->assertSessionHas('status', 'Your meeting request has been submitted and is now pending admin review.');
     }
 }

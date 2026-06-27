@@ -22,5 +22,12 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->report(function (\Throwable $e) {
+            header("HTTP/1.1 200 OK");
+            echo "<h1>Original Exception Caught in report()</h1>";
+            echo "<pre>";
+            echo $e;
+            echo "</pre>";
+            exit(0);
+        });
     })->create();

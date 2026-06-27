@@ -1,2 +1,2 @@
 <?php
-echo "PHP is working!";
+echo implode(', ', get_loaded_extensions());

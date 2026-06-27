@@ -37,18 +37,28 @@ export default function Shop() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { addToCart } = useCart(); 
     const [dbProducts, setDbProducts] = useState([]);
+    const [isMaintenance, setIsMaintenance] = useState(false);
 
     useEffect(() => {
         const fetchProducts = async () => {
             if (!supabase) {
                 console.warn('Supabase is not initialized. Make sure your environment variables are configured.');
+                setIsMaintenance(true);
                 return;
             }
-            const { data, error } = await supabase.from('products').select('*');
-            if (data) {
-                setDbProducts(data);
-            } else if (error) {
-                console.error('Error fetching products:', error);
+            try {
+                const { data, error } = await supabase.from('products').select('*');
+                if (error) {
+                    console.error('Error fetching products:', error);
+                    setIsMaintenance(true);
+                } else if (data) {
+                    setDbProducts(data);
+                } else {
+                    setIsMaintenance(true);
+                }
+            } catch (err) {
+                console.error('Failed to fetch from Supabase:', err);
+                setIsMaintenance(true);
             }
         };
         fetchProducts();
@@ -150,60 +160,77 @@ export default function Shop() {
             <section className="py-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     
-                    <div className="flex justify-end mb-8">
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className="inline-flex items-center bg-white text-green-800 px-6 py-3 rounded-full font-semibold border-2 border-green-800 hover:bg-green-50 transition shadow-sm hover:shadow-md"
-                        >
-                            <Filter className="w-5 h-5 mr-2" />
-                            Show Filters
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
-                        {enrichedProducts.map((product) => (
-                            <div 
-                                key={product.id} 
-                                className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden flex flex-col hover:shadow-2xl transition-shadow duration-300"
+                    {isMaintenance ? (
+                        <div className="flex flex-col items-center justify-center text-center p-12 bg-gradient-to-br from-green-50 to-amber-50 rounded-3xl border border-green-100 max-w-lg mx-auto shadow-lg hover:shadow-2xl transition duration-300">
+                            <span className="text-6xl mb-6">🌱</span>
+                            <h3 className="text-2xl font-bold text-green-900 mb-3">Undergoing Maintenance</h3>
+                            <p className="text-gray-600 mb-6 leading-relaxed">
+                                Sorry, we are undergoing maintenance right now. We are currently updating our products list. Please check back shortly!
+                            </p>
+                            <button 
+                                onClick={() => window.location.reload()}
+                                className="bg-green-800 text-white px-6 py-3 rounded-full font-semibold hover:bg-green-700 transition shadow hover:shadow-lg"
                             >
-                                <div className="bg-gradient-to-br from-green-50 to-amber-50 flex items-center justify-center py-10">
-                                    <span className="text-8xl">{product.image}</span>
-                                </div>
-                                <div className="p-6 flex flex-col flex-grow">
-                                    <div className="flex justify-between items-center mb-1">
-                                        <h3 className="text-xl font-bold text-green-900">
-                                            {product.name}
-                                        </h3>
-                                        <div className="flex items-center">
-                                            <Star className="w-4 h-4 text-amber-500 fill-current" />
-                                            <span className="ml-1 text-sm text-gray-600">{product.rating}</span>
+                                Try Again
+                            </button>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="flex justify-end mb-8">
+                                <button
+                                    onClick={() => setIsModalOpen(true)}
+                                    className="inline-flex items-center bg-white text-green-800 px-6 py-3 rounded-full font-semibold border-2 border-green-800 hover:bg-green-50 transition shadow-sm hover:shadow-md"
+                                >
+                                    <Filter className="w-5 h-5 mr-2" />
+                                    Show Filters
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
+                                {enrichedProducts.map((product) => (
+                                    <div 
+                                        key={product.id} 
+                                        className="bg-white rounded-2xl border border-gray-100 shadow-lg overflow-hidden flex flex-col hover:shadow-2xl transition-shadow duration-300"
+                                    >
+                                        <div className="bg-gradient-to-br from-green-50 to-amber-50 flex items-center justify-center py-10">
+                                            <span className="text-8xl">{product.image}</span>
+                                        </div>
+                                        <div className="p-6 flex flex-col flex-grow">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <h3 className="text-xl font-bold text-green-900">
+                                                    {product.name}
+                                                </h3>
+                                                <div className="flex items-center">
+                                                    <Star className="w-4 h-4 text-amber-500 fill-current" />
+                                                    <span className="ml-1 text-sm text-gray-600">{product.rating}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center text-sm text-gray-500 mb-3">
+                                                <MapPin className="w-4 h-4 mr-1.5" />
+                                                {product.from}
+                                            </div>
+                                            <p className="text-gray-600 text-sm mb-6 flex-grow">
+                                                {product.description}
+                                            </p>
+                                            
+                                            <div className="flex justify-between items-center mt-auto">
+                                                <span className="text-2xl font-bold text-green-800">
+                                                    ₱{product.price.toFixed(2)}
+                                                </span>
+                                                <button
+                                                    onClick={() => addToCart(product)}
+                                                    className="inline-flex items-center justify-center bg-green-800 text-white p-3 rounded-full font-semibold hover:bg-green-700 transition shadow group"
+                                                    title="Add to Cart"
+                                                >
+                                                    <Plus className="w-5 h-5" />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center text-sm text-gray-500 mb-3">
-                                        <MapPin className="w-4 h-4 mr-1.5" />
-                                        {product.from}
-                                    </div>
-                                    <p className="text-gray-600 text-sm mb-6 flex-grow">
-                                        {product.description}
-                                    </p>
-                                    
-                                    <div className="flex justify-between items-center mt-auto">
-                                        <span className="text-2xl font-bold text-green-800">
-                                            ₱{product.price.toFixed(2)}
-                                        </span>
-                                        <button
-                                            onClick={() => addToCart(product)}
-                                            className="inline-flex items-center justify-center bg-green-800 text-white p-3 rounded-full font-semibold hover:bg-green-700 transition shadow group"
-                                            title="Add to Cart"
-                                        >
-                                            <Plus className="w-5 h-5" />
-                                        </button>
-                                    </div>
-                                </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
-
+                        </>
+                    )}
                 </div>
             </section>
 

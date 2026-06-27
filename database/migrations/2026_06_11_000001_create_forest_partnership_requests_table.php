@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('forest_partnership_requests', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('business_name');
             $table->string('contact_person');
             $table->string('email');

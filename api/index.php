@@ -2,28 +2,31 @@
 
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
-use Illuminate\Contracts\Debug\ExceptionHandler;
 
 define('LARAVEL_START', microtime(true));
+
+// Inject Vercel environment variables directly into PHP process to ensure they are loaded
+$_ENV['APP_ENV'] = 'production';
+$_ENV['APP_DEBUG'] = 'true';
+$_ENV['LOG_CHANNEL'] = 'stderr';
+$_ENV['CACHE_DRIVER'] = 'array';
+$_ENV['SESSION_DRIVER'] = 'cookie';
+$_ENV['VIEW_COMPILED_PATH'] = '/tmp';
+$_ENV['DB_CONNECTION'] = 'sqlite';
+$_ENV['DB_DATABASE'] = '/tmp/database.sqlite';
+$_ENV['APP_PACKAGES_CACHE'] = '/tmp/packages.php';
+$_ENV['APP_SERVICES_CACHE'] = '/tmp/services.php';
+$_ENV['APP_CONFIG_CACHE'] = '/tmp/config.php';
+$_ENV['APP_ROUTES_CACHE'] = '/tmp/routes.php';
+$_ENV['APP_EVENTS_CACHE'] = '/tmp/events.php';
+
+foreach ($_ENV as $key => $val) {
+    putenv("{$key}={$val}");
+}
 
 // Suppress deprecation warnings to keep output clean
 ini_set('display_errors', '0');
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
-
-class DiagnosticExceptionHandler implements ExceptionHandler {
-    public function report(\Throwable $e) {}
-    public function shouldReport(\Throwable $e) { return false; }
-    public function render($request, \Throwable $e) {
-        header("HTTP/1.1 200 OK");
-        echo "<h1>Real Original Exception Caught in Handler</h1>";
-        echo "<h2>Class: " . get_class($e) . "</h2>";
-        echo "<p>Message: <strong>" . htmlspecialchars($e->getMessage()) . "</strong></p>";
-        echo "<p>File: " . $e->getFile() . ":" . $e->getLine() . "</p>";
-        echo "<pre>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
-        exit(0);
-    }
-    public function renderForConsole($output, \Throwable $e) {}
-}
 
 try {
     // Copy SQLite database to /tmp so it's writeable at runtime
@@ -41,21 +44,63 @@ try {
     /** @var Application $app */
     $app = require_once __DIR__.'/../bootstrap/app.php';
 
-    // Swap ExceptionHandler with our diagnostic handler to capture the real boot error
-    $app->singleton(
-        ExceptionHandler::class,
-        DiagnosticExceptionHandler::class
-    );
-
     // Handle the request
     $app->handleRequest(Request::capture());
 
 } catch (\Throwable $e) {
-    header("HTTP/1.1 200 OK");
-    echo "<h1>Unhandled Exception in api/index.php global try-catch</h1>";
-    echo "<h2>Class: " . get_class($e) . "</h2>";
-    echo "<p>Message: <strong>" . htmlspecialchars($e->getMessage()) . "</strong></p>";
-    echo "<p>File: " . $e->getFile() . ":" . $e->getLine() . "</p>";
-    echo "<pre>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
+    // If a fatal exception occurs during bootstrap, return a clean maintenance response
+    header("HTTP/1.1 503 Service Unavailable");
+    header("Content-Type: text/html; charset=utf-8");
+    ?>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Under Maintenance | Jade</title>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+        <style>
+            body {
+                font-family: 'Outfit', sans-serif;
+                background: radial-gradient(circle at center, #064e3b 0%, #022c22 100%);
+                color: #f0fdf4;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0;
+                padding: 2rem;
+            }
+            .container {
+                max-width: 560px;
+                text-align: center;
+                background: rgba(6, 78, 59, 0.4);
+                backdrop-filter: blur(16px);
+                border: 1px solid rgba(245, 158, 11, 0.15);
+                padding: 3.5rem 2.5rem;
+                border-radius: 24px;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            }
+            h1 {
+                font-size: 2.2rem;
+                margin-top: 1rem;
+                color: #ffffff;
+            }
+            p {
+                font-size: 1.1rem;
+                color: #a7f3d0;
+                line-height: 1.6;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <span style="font-size: 3rem;">🌱</span>
+            <h1>Undergoing Maintenance</h1>
+            <p>Sorry, we are undergoing maintenance right now. We are currently updating our systems. Please check back shortly!</p>
+        </div>
+    </body>
+    </html>
+    <?php
     exit(0);
 }

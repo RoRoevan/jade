@@ -131,7 +131,7 @@ class AdminController extends Controller
 
         $requestRecord = ForestPartnershipRequest::create(array_merge($validated, [
             'status' => 'pending',
-            'user_id' => auth()->id() ?? 1,
+            'user_id' => auth()->id(),
         ]));
 
         AdminNotification::create([

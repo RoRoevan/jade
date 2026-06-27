@@ -22,5 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->render(function (\Throwable $e) {
+            if ($e instanceof \PDOException || $e instanceof \Illuminate\Database\QueryException) {
+                return response()->view('errors.maintenance', [], 503);
+            }
+        });
     })->create();

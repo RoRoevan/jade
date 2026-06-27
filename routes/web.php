@@ -7,9 +7,6 @@ use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RedeemController;
 use App\Http\Controllers\AdminController;
-
-use App\Models\Product;
-
 Route::get('/', function () {
     return Inertia::render('Home');
 })->name('home');

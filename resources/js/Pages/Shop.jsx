@@ -40,6 +40,10 @@ export default function Shop() {
 
     useEffect(() => {
         const fetchProducts = async () => {
+            if (!supabase) {
+                console.warn('Supabase is not initialized. Make sure your environment variables are configured.');
+                return;
+            }
             const { data, error } = await supabase.from('products').select('*');
             if (data) {
                 setDbProducts(data);

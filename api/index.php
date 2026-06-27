@@ -48,59 +48,12 @@ try {
     $app->handleRequest(Request::capture());
 
 } catch (\Throwable $e) {
-    // If a fatal exception occurs during bootstrap, return a clean maintenance response
-    header("HTTP/1.1 503 Service Unavailable");
+    header("HTTP/1.1 200 OK");
     header("Content-Type: text/html; charset=utf-8");
-    ?>
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Under Maintenance | Jade</title>
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
-        <style>
-            body {
-                font-family: 'Outfit', sans-serif;
-                background: radial-gradient(circle at center, #064e3b 0%, #022c22 100%);
-                color: #f0fdf4;
-                min-height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin: 0;
-                padding: 2rem;
-            }
-            .container {
-                max-width: 560px;
-                text-align: center;
-                background: rgba(6, 78, 59, 0.4);
-                backdrop-filter: blur(16px);
-                border: 1px solid rgba(245, 158, 11, 0.15);
-                padding: 3.5rem 2.5rem;
-                border-radius: 24px;
-                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-            }
-            h1 {
-                font-size: 2.2rem;
-                margin-top: 1rem;
-                color: #ffffff;
-            }
-            p {
-                font-size: 1.1rem;
-                color: #a7f3d0;
-                line-height: 1.6;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <span style="font-size: 3rem;">🌱</span>
-            <h1>Undergoing Maintenance</h1>
-            <p>Sorry, we are undergoing maintenance right now. We are currently updating our systems. Please check back shortly!</p>
-        </div>
-    </body>
-    </html>
-    <?php
+    echo "<h1>Real Exception Caught in api/index.php</h1>";
+    echo "<h2>Class: " . get_class($e) . "</h2>";
+    echo "<p>Message: <strong>" . htmlspecialchars($e->getMessage()) . "</strong></p>";
+    echo "<p>File: " . $e->getFile() . ":" . $e->getLine() . "</p>";
+    echo "<pre>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
     exit(0);
 }

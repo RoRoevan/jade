@@ -36,10 +36,14 @@ try {
 } catch (\Throwable $e) {
     header("HTTP/1.1 200 OK");
     echo "<h1>Caught Boot Throwable</h1>";
-    echo "<pre>";
-    echo "Message: " . $e->getMessage() . "\n\n";
-    echo "File: " . $e->getFile() . ":" . $e->getLine() . "\n\n";
-    echo "Trace:\n" . $e->getTraceAsString();
-    echo "</pre>";
+    $curr = $e;
+    while ($curr) {
+        echo "<h2>Exception Class: " . get_class($curr) . "</h2>";
+        echo "<p>Message: <strong>" . htmlspecialchars($curr->getMessage()) . "</strong></p>";
+        echo "<p>File: " . $curr->getFile() . ":" . $curr->getLine() . "</p>";
+        echo "<pre>" . htmlspecialchars($curr->getTraceAsString()) . "</pre>";
+        echo "<hr>";
+        $curr = $curr->getPrevious();
+    }
     exit(0);
 }

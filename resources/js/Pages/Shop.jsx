@@ -38,11 +38,13 @@ export default function Shop() {
     const { addToCart } = useCart(); 
     const [dbProducts, setDbProducts] = useState([]);
     const [isMaintenance, setIsMaintenance] = useState(false);
+    const [errorDetails, setErrorDetails] = useState('');
 
     useEffect(() => {
         const fetchProducts = async () => {
             if (!supabase) {
                 console.warn('Supabase is not initialized. Make sure your environment variables are configured.');
+                setErrorDetails('Supabase client is not initialized.');
                 setIsMaintenance(true);
                 return;
             }
@@ -50,14 +52,17 @@ export default function Shop() {
                 const { data, error } = await supabase.from('products').select('*');
                 if (error) {
                     console.error('Error fetching products:', error);
+                    setErrorDetails(error.message || JSON.stringify(error));
                     setIsMaintenance(true);
                 } else if (data) {
                     setDbProducts(data);
                 } else {
+                    setErrorDetails('No products data returned from Supabase.');
                     setIsMaintenance(true);
                 }
             } catch (err) {
                 console.error('Failed to fetch from Supabase:', err);
+                setErrorDetails(err.message || String(err));
                 setIsMaintenance(true);
             }
         };
@@ -167,6 +172,11 @@ export default function Shop() {
                             <p className="text-gray-600 mb-6 leading-relaxed">
                                 Sorry, we are undergoing maintenance right now. We are currently updating our products list. Please check back shortly!
                             </p>
+                            {errorDetails && (
+                                <div className="text-xs text-red-700 bg-red-50 border border-red-100 rounded-xl p-3.5 mb-6 text-left font-mono break-all w-full">
+                                    <strong>Debug Info:</strong> {errorDetails}
+                                </div>
+                            )}
                             <button 
                                 onClick={() => window.location.reload()}
                                 className="bg-green-800 text-white px-6 py-3 rounded-full font-semibold hover:bg-green-700 transition shadow hover:shadow-lg"

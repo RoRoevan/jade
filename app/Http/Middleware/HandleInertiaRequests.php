@@ -41,11 +41,28 @@ class HandleInertiaRequests extends Middleware
 
                 if (! in_array($tier, ['Seed', 'Tree'])) return [];
 
-                return \App\Models\AdminNotification::when($tier === 'Seed', function ($q) {
-                        $q->where('audience', 'seed_and_tree');
-                    })
-                    ->orderBy('id', 'desc')
-                    ->pluck('message');
+                try {
+                    $supabaseUrl = env('SUPABASE_URL') ?: env('VITE_SUPABASE_URL', 'https://aknuiuavolazpdhlmrmd.supabase.co');
+                    $supabaseKey = env('SUPABASE_ANON_KEY') ?: env('VITE_SUPABASE_ANON_KEY', 'sb_publishable_icgYx3cjCVnbiVBSPXORSg_5N37R3im');
+
+                    $url = $supabaseUrl . '/rest/v1/notifications?order=id.desc';
+                    if ($tier === 'Seed') {
+                        $url .= '&audience=eq.seed_and_tree';
+                    }
+
+                    $response = \Illuminate\Support\Facades\Http::withHeaders([
+                        'apikey' => $supabaseKey,
+                        'Authorization' => 'Bearer ' . $supabaseKey,
+                    ])->get($url);
+
+                    if ($response->successful()) {
+                        return collect($response->json())->pluck('message')->toArray();
+                    }
+                } catch (\Exception $e) {
+                    // Fallback to empty array
+                }
+
+                return [];
             },
         ];
     }
